@@ -6,7 +6,6 @@ import cv2
 import numpy as np
 from typing import List, Dict, Any, Optional
 import requests
-from io import BytesIO
 import uuid
 import os
 from urllib.parse import unquote, quote
