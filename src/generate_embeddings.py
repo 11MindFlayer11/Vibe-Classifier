@@ -64,22 +64,38 @@ class EmbeddingMaker:
         except:
             return None
 
-    def get_embedding(self, pil_img: Image.Image) -> np.ndarray:
-        inputs = self.clip_processor(images=pil_img, return_tensors="pt").to(
-            self.device
-        )
+    def get_embedding(self, pil_img: Image.Image, text: str) -> np.ndarray:
+        """Get combined embedding from both image and text in a single forward pass"""
+        inputs = self.clip_processor(
+            images=pil_img, text=text, return_tensors="pt", padding=True
+        ).to(self.device)
 
-        # Use context managers to optimize memory usage
         with (
             torch.no_grad(),
             torch.cuda.amp.autocast() if self.device.type == "cuda" else nullcontext(),
         ):
-            outputs = self.clip_model.get_image_features(**inputs)
-            # Move to CPU immediately to free GPU memory
-            if self.device.type == "cuda":
-                outputs = outputs.cpu()
+            # Get both image and text features
+            image_features = self.clip_model.get_image_features(**inputs)
+            text_features = self.clip_model.get_text_features(**inputs)
 
-        return outputs.squeeze().numpy()
+            # Move to CPU if using GPU
+            if self.device.type == "cuda":
+                image_features = image_features.cpu()
+                text_features = text_features.cpu()
+
+        # Convert to numpy and normalize
+        image_embedding = image_features.squeeze().numpy()
+        text_embedding = text_features.squeeze().numpy()
+
+        # Normalize both embeddings
+        image_embedding = image_embedding / np.linalg.norm(image_embedding)
+        text_embedding = text_embedding / np.linalg.norm(text_embedding)
+
+        # Concatenate and normalize final embedding
+        combined = np.concatenate([image_embedding, text_embedding])
+        combined = combined / np.linalg.norm(combined)
+
+        return combined
 
     def get_best_crop(self, img_pil: Image.Image, prodtype: str) -> Image.Image or None:
         img_cv = np.array(img_pil)[:, :, ::-1]  # RGB to BGR
@@ -103,6 +119,7 @@ class EmbeddingMaker:
     def generate_embeddings_from_df(self, images_df: pd.DataFrame) -> dict:
         """
         Generates and returns a dictionary of product_id -> averaged CLIP embeddings.
+        Now includes both image and text embeddings in a single forward pass.
         """
         id_to_embeddings = {}
 
@@ -111,17 +128,20 @@ class EmbeddingMaker:
             url = row["image_url"]
             prodtype = row["prod"]
 
+            # Create text description from product type
+            text_description = f"A {prodtype} fashion item"
+
             img = self.fetch_image(url)
             if img is None:
                 continue
 
             if prodtype == "other":
-                embedding = self.get_embedding(img)
+                embedding = self.get_embedding(img, text_description)
             else:
                 cropped_img = self.get_best_crop(img, prodtype)
                 if cropped_img is None:
                     continue
-                embedding = self.get_embedding(cropped_img)
+                embedding = self.get_embedding(cropped_img, text_description)
 
             id_to_embeddings.setdefault(prod_id, []).append(embedding)
 

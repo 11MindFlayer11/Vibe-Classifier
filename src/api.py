@@ -1,11 +1,10 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 import cv2
 import numpy as np
 from typing import List, Dict, Any, Optional
 import requests
+from io import BytesIO
 import uuid
 import os
 from urllib.parse import unquote, quote
@@ -17,8 +16,18 @@ from object_detection import FashionDetector
 from product_matching import ProductMatcher
 from generate_embeddings import EmbeddingMaker
 
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+# CORS middleware - ESSENTIAL for frontend to work
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Initialize our components
 detector = FashionDetector()
