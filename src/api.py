@@ -10,6 +10,7 @@ import os
 from urllib.parse import unquote, quote
 import re
 from PIL import Image
+import base64
 
 from vibe_llm import classify_video_vibe
 from object_detection import FashionDetector
@@ -68,21 +69,21 @@ class VideoRequest(BaseModel):
 
 class ProductMatch(BaseModel):
     type: str
-    imageurl: str  # Changed from color to imageurl
+    imageurl: str
     matched_product_id: str
     match_type: str
     confidence: float
 
 
-class CategoryMatches(BaseModel):
-    category: str  # "top" or "bottom"
+class ProductGroup(BaseModel):
     matches: List[ProductMatch]
+    detected_object: str
 
 
 class VideoAnalysisResponse(BaseModel):
     video_id: str
     vibes: List[str]
-    products: List[Dict[str, List[ProductMatch]]]
+    products: List[Dict[str, ProductGroup]]
 
 
 def is_url(path: str) -> bool:
@@ -212,6 +213,10 @@ def process_frame(frame: np.ndarray) -> List[Dict[str, Any]]:
         # Convert crop to PIL Image for embedding generation
         pil_crop = Image.fromarray(cv2.cvtColor(crop_obj, cv2.COLOR_BGR2RGB))
 
+        # Convert the cropped image to base64 for response
+        _, buffer = cv2.imencode(".jpg", crop_obj)
+        detected_object_base64 = base64.b64encode(buffer).decode("utf-8")
+
         # Generate combined embedding for the detected object
         combined_embedding = embedding_maker.get_embedding(
             pil_img=pil_crop,
@@ -224,6 +229,7 @@ def process_frame(frame: np.ndarray) -> List[Dict[str, Any]]:
                 "crop": crop_obj,  # Store the cropped image for later deduplication
                 "confidence": det["confidence"],
                 "embedding": combined_embedding,  # Store the combined embedding
+                "detected_object": detected_object_base64,  # Store base64 encoded image
             }
         )
 
@@ -308,7 +314,18 @@ async def analyze_video(request: VideoRequest):
 
             # Only add to response if there are valid matches
             if valid_matches:
-                products_list.append({f"product_{product_counter}": valid_matches})
+                # Convert the detected object to base64 for the first match only
+                _, buffer = cv2.imencode(".jpg", unique_prod["crop"])
+                detected_object_base64 = base64.b64encode(buffer).decode("utf-8")
+
+                products_list.append(
+                    {
+                        f"product_{product_counter}": ProductGroup(
+                            matches=valid_matches,
+                            detected_object=detected_object_base64,
+                        )
+                    }
+                )
                 product_counter += 1
 
         # Create response
