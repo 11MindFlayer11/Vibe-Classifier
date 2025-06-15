@@ -133,7 +133,9 @@ class FashionDetector:
 
 # detector = FashionDetector()
 # # Read image as ndarray (shape: [H, W, C], BGR format)
-# img = cv2.imread("path/to/your/image.jpg")
+# img = cv2.imread(
+#     r"D:\AI Hackathon-20250604T183910Z-1-001\AI Hackathon\videos\2025-06-02_11-31-19_UTC.jpg"
+# )
 
 # Optional: Convert BGR to RGB
 # img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -141,14 +143,16 @@ class FashionDetector:
 
 # detections = detector.detect_items(frame=img_rgb, conf_threshold=0.3)
 # new_frame = detector.draw_detections(detections=detections, frame=img_rgb)
-# cv2.imwrite("results.jpg", new_frame)
+# cv2.imwrite(r"C:\Users\SHIV\Desktop\results.jpg", new_frame)
 
 # crop_obj = detector.crop_detection(frame=img_rgb, bbox=detections[0]["bbox"])
-# cv2.imwrite("crop.jpg", crop_obj)
+# cv2.imwrite(r"C:\Users\SHIV\Desktop\crop.jpg", crop_obj)
 
 # import requests
 
-# response = requests.get("https://example.com/image.jpg")
+# response = requests.get(
+#     r"https://cdn.shopify.com/s/files/1/0785/1674/8585/files/15thJuneVirgio-0769_1600x.jpg?v=1719118386"
+# )
 # image_array = np.asarray(bytearray(response.content), dtype=np.uint8)
 # img_rgb = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 

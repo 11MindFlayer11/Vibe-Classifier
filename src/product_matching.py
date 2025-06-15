@@ -18,10 +18,12 @@ class ProductMatcher:
         """
         self.catalog_df = pd.read_csv(catalog_path)
         self.product_embeddings = None
-        self.index = faiss.read_index("data/index/product_embeddingsIP_new.index")
-        self.index_ids = pd.read_csv("data/index/product_embedding_idsIP_new.csv")[
-            "id"
-        ].tolist()
+        self.index = faiss.read_index(
+            r"C:\Users\SHIV\Desktop\Flickd Hackathon Git\Vibe-Classifier\data\index/product_embeddingsIP_new.index"
+        )
+        self.index_ids = pd.read_csv(
+            r"C:\Users\SHIV\Desktop\Flickd Hackathon Git\Vibe-Classifier\data\index/product_embedding_idsIP_new.csv"
+        )["id"].tolist()
 
     def match_product(
         self, img: np.ndarray, top_k: int = 5, text: str = None
