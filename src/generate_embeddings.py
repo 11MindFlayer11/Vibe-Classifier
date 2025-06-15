@@ -1,177 +1,72 @@
 import pandas as pd
-import requests
-import numpy as np
-import torch
-import faiss
-from PIL import Image
-from io import BytesIO
-from tqdm import tqdm
-from transformers import CLIPProcessor, CLIPModel
-from object_detection import FashionDetector  # Custom detector
 import os
-from contextlib import nullcontext
+from generate_embeddings import EmbeddingMaker
+from tqdm import tqdm
+import logging
 
-# Set PyTorch memory management configurations
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-torch.backends.cuda.max_split_size_mb = 512  # Limit memory splits
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 
-class EmbeddingMaker:
-    TOP_CLASSES = {
-        "short_sleeved_shirt",
-        "long_sleeved_shirt",
-        "short_sleeved_outwear",
-        "long_sleeved_outwear",
-        "vest",
-        "sling",
-        "short_sleeved_dress",
-        "long_sleeved_dress",
-        "vest_dress",
-        "sling_dress",
-    }
+def setup_directories():
+    """Create necessary directories if they don't exist"""
+    os.makedirs("embeddings", exist_ok=True)
+    os.makedirs("logs", exist_ok=True)
 
-    BOTTOM_CLASSES = {"shorts", "trousers", "skirt"}
 
-    def __init__(self):
-        try:
-            # Try to use GPU with memory-efficient settings
-            self.device = torch.device("cuda")
-            # Load model with memory-efficient settings
-            with torch.cuda.amp.autocast():  # Use automatic mixed precision
-                self.clip_model = CLIPModel.from_pretrained(
-                    "openai/clip-vit-base-patch32",
-                    torch_dtype=torch.float16,  # Use half precision
-                    low_cpu_mem_usage=True,
-                ).to(self.device)
-        except (RuntimeError, torch.cuda.OutOfMemoryError):
-            print("GPU memory insufficient, falling back to CPU")
-            self.device = torch.device("cpu")
-            self.clip_model = CLIPModel.from_pretrained(
-                "openai/clip-vit-base-patch32",
-                low_cpu_mem_usage=True,
-            ).to(self.device)
+def load_data(csv_path):
+    """Load and validate the input data"""
+    try:
+        df = pd.read_csv(csv_path)
+        required_columns = ["id", "image_url", "prod"]
+        if not all(col in df.columns for col in required_columns):
+            raise ValueError(f"CSV must contain columns: {required_columns}")
+        return df
+    except Exception as e:
+        logger.error(f"Error loading data: {str(e)}")
+        raise
 
-        self.clip_processor = CLIPProcessor.from_pretrained(
-            "openai/clip-vit-base-patch32"
-        )
-        self.fashion_detector = FashionDetector()
 
-    def fetch_image(self, url):
-        try:
-            response = requests.get(url, timeout=5)
-            img = Image.open(BytesIO(response.content)).convert("RGB")
-            return img
-        except:
-            return None
+def main():
+    # Setup
+    setup_directories()
 
-    def get_embedding(self, pil_img: Image.Image, text: str) -> np.ndarray:
-        """Get combined embedding from both image and text in a single forward pass"""
-        inputs = self.clip_processor(
-            images=pil_img, text=text, return_tensors="pt", padding=True
-        ).to(self.device)
+    # Paths
+    input_csv = "data/catalog/images+id+prodtype.csv"
+    output_index = "embeddings/product_embeddingsIP_new.index"
+    output_ids = "embeddings/product_embedding_idsIP_new.csv"
 
-        with (
-            torch.no_grad(),
-            torch.cuda.amp.autocast() if self.device.type == "cuda" else nullcontext(),
-        ):
-            # Get both image and text features
-            image_features = self.clip_model.get_image_features(**inputs)
-            text_features = self.clip_model.get_text_features(**inputs)
+    try:
+        # Load data
+        logger.info("Loading data...")
+        images_df = load_data(input_csv)
 
-            # Move to CPU if using GPU
-            if self.device.type == "cuda":
-                image_features = image_features.cpu()
-                text_features = text_features.cpu()
+        # Initialize embedding maker
+        logger.info("Initializing EmbeddingMaker...")
+        maker = EmbeddingMaker()
 
-        # Convert to numpy and normalize
-        image_embedding = image_features.squeeze().numpy()
-        text_embedding = text_features.squeeze().numpy()
+        # Generate embeddings
+        logger.info("Generating embeddings...")
+        final_embeddings = maker.generate_embeddings_from_df(images_df)
 
-        # Normalize both embeddings
-        image_embedding = image_embedding / np.linalg.norm(image_embedding)
-        text_embedding = text_embedding / np.linalg.norm(text_embedding)
-
-        # Concatenate and normalize final embedding
-        combined = np.concatenate([image_embedding, text_embedding])
-        combined = combined / np.linalg.norm(combined)
-
-        return combined
-
-    def get_best_crop(self, img_pil: Image.Image, prodtype: str) -> Image.Image or None:
-        img_cv = np.array(img_pil)[:, :, ::-1]  # RGB to BGR
-        detections = self.fashion_detector.detect_items(img_cv)
-
-        filtered = []
-        for det in detections:
-            cls = det["class"]
-            if prodtype == "top" and cls in self.TOP_CLASSES:
-                filtered.append(det)
-            elif prodtype == "bottom" and cls in self.BOTTOM_CLASSES:
-                filtered.append(det)
-
-        if not filtered:
-            return None
-
-        best = max(filtered, key=lambda x: x["confidence"])
-        cropped = self.fashion_detector.crop_detection(img_cv, best["bbox"])
-        return Image.fromarray(cropped[:, :, ::-1])  # BGR to RGB
-
-    def generate_embeddings_from_df(self, images_df: pd.DataFrame) -> dict:
-        """
-        Generates and returns a dictionary of product_id -> averaged CLIP embeddings.
-        Now includes both image and text embeddings in a single forward pass.
-        """
-        id_to_embeddings = {}
-
-        for _, row in tqdm(images_df.iterrows(), total=len(images_df)):
-            prod_id = row["id"]
-            url = row["image_url"]
-            prodtype = row["prod"]
-
-            # Create text description from product type
-            text_description = f"A {prodtype} fashion item"
-
-            img = self.fetch_image(url)
-            if img is None:
-                continue
-
-            if prodtype == "other":
-                embedding = self.get_embedding(img, text_description)
-            else:
-                cropped_img = self.get_best_crop(img, prodtype)
-                if cropped_img is None:
-                    continue
-                embedding = self.get_embedding(cropped_img, text_description)
-
-            id_to_embeddings.setdefault(prod_id, []).append(embedding)
-
-        # Average embeddings
-        final_embeddings = {}
-        for prod_id, emb_list in id_to_embeddings.items():
-            emb_stack = np.stack(emb_list)
-            final_embeddings[prod_id] = emb_stack.mean(axis=0)
-
-        return final_embeddings
-
-    def save_to_faiss(
-        self,
-        embeddings: dict,
-        index_path="product_embeddingsIP.index",
-        id_path="product_embedding_idsIP.csv",
-    ):
-        """
-        Saves the embeddings dictionary to FAISS index and CSV.
-        """
-        embedding_matrix = np.stack(list(embeddings.values())).astype("float32")
-        ids = list(embeddings.keys())
-
-        # Normalize
-        embedding_matrix = embedding_matrix / np.linalg.norm(
-            embedding_matrix, axis=1, keepdims=True
+        # Save embeddings
+        logger.info("Saving embeddings...")
+        maker.save_to_faiss(
+            final_embeddings, index_path=output_index, id_path=output_ids
         )
 
-        index = faiss.IndexFlatIP(embedding_matrix.shape[1])
-        index.add(embedding_matrix)
+        logger.info(
+            f"Successfully generated embeddings for {len(final_embeddings)} products"
+        )
+        logger.info(f"Embeddings saved to {output_index} and {output_ids}")
 
-        faiss.write_index(index, index_path)
-        pd.DataFrame({"id": ids}).to_csv(id_path, index=False)
+    except Exception as e:
+        logger.error(f"Pipeline failed: {str(e)}")
+        raise
+
+
+if __name__ == "__main__":
+    main()

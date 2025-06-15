@@ -209,18 +209,25 @@ def process_frame(frame: np.ndarray) -> List[Dict[str, Any]]:
         # Crop the detected object
         crop_obj = detector.crop_detection(frame=frame, bbox=det["bbox"])
 
+        # Convert crop to PIL Image for embedding generation
+        pil_crop = Image.fromarray(cv2.cvtColor(crop_obj, cv2.COLOR_BGR2RGB))
+
+        # Generate combined embedding for the detected object
+        combined_embedding = embedding_maker.get_embedding(
+            pil_img=pil_crop,
+            text=det["class"],  # Use the detected class as text
+        )
+
         matches.append(
             {
                 "class": det["class"],
                 "crop": crop_obj,  # Store the cropped image for later deduplication
                 "confidence": det["confidence"],
+                "embedding": combined_embedding,  # Store the combined embedding
             }
         )
 
     return matches
-
-
-#
 
 
 @app.post("/analyze_video", response_model=VideoAnalysisResponse)
@@ -249,15 +256,13 @@ async def analyze_video(request: VideoRequest):
         unique_products = []
         for detection in all_detections:
             is_duplicate = False
-            current_embedding = embedding_maker.get_embedding(
-                Image.fromarray(detection["crop"])
-            )
+            current_embedding = detection["embedding"]  # Use the combined embedding
 
             # Compare with already found unique products
             for existing_prod in unique_products:
-                existing_embedding = embedding_maker.get_embedding(
-                    Image.fromarray(existing_prod["crop"])
-                )
+                existing_embedding = existing_prod[
+                    "embedding"
+                ]  # Use the combined embedding
 
                 # Calculate cosine similarity
                 similarity = np.dot(current_embedding, existing_embedding) / (
@@ -281,9 +286,11 @@ async def analyze_video(request: VideoRequest):
         product_counter = 1  # Separate counter for valid matches only
 
         for unique_prod in unique_products:
-            # Match with catalog - get top 3 matches
+            # Match with catalog using the combined embedding
             product_matches = product_matcher.match_product(
-                unique_prod["crop"], top_k=3
+                unique_prod["crop"],  # Pass the cropped image
+                top_k=3,  # Get top 3 matches
+                text=unique_prod["class"],  # Pass the detected class as text
             )
 
             # Filter out matches with "no_match" match_type
@@ -314,7 +321,7 @@ async def analyze_video(request: VideoRequest):
         return response
 
     finally:
-        # Cleanup only if we  the file
+        # Cleanup only if we downloaded the file
         if should_cleanup and os.path.exists(video_path):
             os.remove(video_path)
 

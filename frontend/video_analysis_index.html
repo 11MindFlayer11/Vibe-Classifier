@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Analysis Application</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .form-section {
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        
+        .input-group {
+            margin-bottom: 25px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1em;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .input-hint {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        .analyze-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .analyze-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .analyze-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            background: white;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results-section {
+            display: none;
+            padding: 40px;
+            background: white;
+        }
+        
+        .results-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .results-header h2 {
+            color: #333;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .video-id {
+            background: #f8f9fa;
+            padding: 10px 20px;
+            border-radius: 20px;
+            display: inline-block;
+            font-family: monospace;
+            color: #666;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .action-btn:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+        
+        .action-btn.download {
+            background: #28a745;
+        }
+        
+        .action-btn.download:hover {
+            background: #218838;
+        }
+        
+        .action-btn.view {
+            background: #fd7e14;
+        }
+        
+        .action-btn.view:hover {
+            background: #e8650e;
+        }
+        
+        .json-viewer {
+            display: none;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .json-viewer-header {
+            background: #e9ecef;
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .json-viewer-header h4 {
+            margin: 0;
+            color: #495057;
+        }
+        
+        .json-viewer-content {
+            padding: 15px;
+        }
+        
+        .json-viewer pre {
+            background: #fff;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #495057;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 0;
+        }
+        
+        .close-json-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .close-json-btn:hover {
+            background: #5a6268;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 40px;
+            margin-top: 30px;
+        }
+        
+        .vibes-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 12px;
+        }
+        
+        .vibes-section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .vibe-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin: 5px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        
+        .products-section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .product-group {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+        
+        .product-group h4 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            text-transform: capitalize;
+        }
+        
+        .product-matches {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .product-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            background: #f0f0f0;
+        }
+        
+        .product-info {
+            padding: 15px;
+        }
+        
+        .product-type {
+            font-weight: 600;
+            color: #333;
+            text-transform: capitalize;
+            margin-bottom: 5px;
+        }
+        
+        .product-id {
+            font-size: 0.8em;
+            color: #666;
+            font-family: monospace;
+            margin-bottom: 8px;
+        }
+        
+        .match-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .match-type {
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            color: #495057;
+        }
+        
+        .confidence {
+            font-weight: 600;
+            color: #28a745;
+        }
+        
+        .error-section {
+            display: none;
+            padding: 40px;
+            background: #fff5f5;
+            border-left: 4px solid #e53e3e;
+            margin: 20px;
+            border-radius: 8px;
+        }
+        
+        .error-section h3 {
+            color: #e53e3e;
+            margin-bottom: 10px;
+        }
+        
+        .error-section p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .new-analysis-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            transition: background 0.3s ease;
+        }
+        
+        .new-analysis-btn:hover {
+            background: #218838;
+        }
+        
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .product-matches {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .action-btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎥 Video Analysis Tool</h1>
+            <p>Analyze fashion items and vibes from your videos</p>
+        </div>
+        
+        <div class="form-section" id="form-section">
+            <div class="input-group">
+                <label for="video-url">📹 Video Path/URL</label>
+                <input 
+                    type="text" 
+                    id="video-url" 
+                    placeholder="Enter video URL or local file path (e.g., C:\Videos\sample.mp4 or https://example.com/video.mp4)"
+                    required
+                >
+                <div class="input-hint">
+                    Supports both local file paths and web URLs
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <label for="caption-input">💬 Caption (Optional)</label>
+                <input 
+                    type="text" 
+                    id="caption-input" 
+                    placeholder="Enter caption text or path to .txt file (e.g., C:\captions\video1.txt or 'Summer vibes!')"
+                >
+                <div class="input-hint">
+                    Can be direct text or path to a .txt file
+                </div>
+            </div>
+            
+            <button class="analyze-btn" onclick="analyzeVideo()" id="analyze-btn">
+                🔍 Analyze Video
+            </button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <h3>Analyzing your video...</h3>
+            <p>This may take a few moments depending on video length</p>
+        </div>
+        
+        <div class="error-section" id="error-section">
+            <h3>❌ Analysis Failed</h3>
+            <p id="error-message"></p>
+            <button class="new-analysis-btn" onclick="resetForm()">Try Again</button>
+        </div>
+        
+        <div class="results-section" id="results-section">
+            <div class="results-header">
+                <h2>📊 Analysis Results</h2>
+                <div class="video-id" id="video-id"></div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="action-btn download" onclick="downloadJSON()">
+                    📥 Download JSON
+                </button>
+                <button class="action-btn view" onclick="toggleJSONViewer()">
+                    👁️ View JSON
+                </button>
+            </div>
+            
+            <div class="json-viewer" id="json-viewer">
+                <div class="json-viewer-header">
+                    <h4>📄 JSON Output</h4>
+                    <button class="close-json-btn" onclick="closeJSONViewer()">✕ Close</button>
+                </div>
+                <div class="json-viewer-content">
+                    <pre id="json-content"></pre>
+                </div>
+            </div>
+            
+            <div class="results-grid">
+                <div class="vibes-section">
+                    <h3>✨ Detected Vibes</h3>
+                    <div id="vibes-container"></div>
+                </div>
+                
+                <div class="products-section">
+                    <h3>👗 Fashion Products</h3>
+                    <div id="products-container"></div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <button class="new-analysis-btn" onclick="resetForm()">
+                    🔄 Analyze Another Video
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        // Global variable to store the JSON response
+        let currentAnalysisData = null;
+        
+        // Main function to analyze video
+        async function analyzeVideo() {
+            const videoUrl = document.getElementById('video-url').value.trim();
+            const caption = document.getElementById('caption-input').value.trim();
+            
+            // Validation
+            if (!videoUrl) {
+                alert('Please enter a video URL or path');
+                return;
+            }
+            
+            // Show loading state
+            showLoading();
+            
+            try {
+                // Prepare request data
+                const requestData = {
+                    video_url: videoUrl,
+                    caption: caption || null
+                };
+                
+                console.log('Sending request:', requestData);
+                
+                // Make API call
+                const response = await fetch(`${API_BASE_URL}/analyze_video`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Analysis result:', result);
+                
+                // Store the result globally for download/view
+                currentAnalysisData = result;
+                
+                // Display results
+                displayResults(result);
+                
+            } catch (error) {
+                console.error('Analysis failed:', error);
+                showError(error.message);
+            }
+        }
+        
+        // Function to download JSON
+        function downloadJSON() {
+            if (!currentAnalysisData) {
+                alert('No analysis data available for download');
+                return;
+            }
+            
+            const jsonString = JSON.stringify(currentAnalysisData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `video_analysis_${currentAnalysisData.video_id}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Function to toggle JSON viewer
+        function toggleJSONViewer() {
+            if (!currentAnalysisData) {
+                alert('No analysis data available to view');
+                return;
+            }
+            
+            const viewer = document.getElementById('json-viewer');
+            const content = document.getElementById('json-content');
+            
+            if (viewer.style.display === 'none' || viewer.style.display === '') {
+                // Show viewer
+                content.textContent = JSON.stringify(currentAnalysisData, null, 2);
+                viewer.style.display = 'block';
+                
+                // Update button text
+                const btn = document.querySelector('.action-btn.view');
+                btn.innerHTML = '🙈 Hide JSON';
+            } else {
+                // Hide viewer
+                closeJSONViewer();
+            }
+        }
+        
+        // Function to close JSON viewer
+        function closeJSONViewer() {
+            const viewer = document.getElementById('json-viewer');
+            viewer.style.display = 'none';
+            
+            // Update button text
+            const btn = document.querySelector('.action-btn.view');
+            btn.innerHTML = '👁️ View JSON';
+        }
+        
+        // Show loading state
+        function showLoading() {
+            document.getElementById('form-section').style.display = 'none';
+            document.getElementById('results-section').style.display = 'none';
+            document.getElementById('error-section').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            
+            // Disable button
+            const btn = document.getElementById('analyze-btn');
+            btn.disabled = true;
+            btn.textContent = 'Analyzing...';
+        }
+        
+        // Show error state
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('results-section').style.display = 'none';
+            document.getElementById('error-section').style.display = 'block';
+            document.getElementById('error-message').textContent = message;
+            
+            // Reset button
+            resetButton();
+        }
+        
+        // Display analysis results
+        function displayResults(data) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-section').style.display = 'none';
+            document.getElementById('results-section').style.display = 'block';
+            
+            // Set video ID
+            document.getElementById('video-id').textContent = `Video ID: ${data.video_id}`;
+            
+            // Display vibes
+            displayVibes(data.vibes);
+            
+            // Display products
+            displayProducts(data.products);
+            
+            // Reset button
+            resetButton();
+        }
+        
+        // Display vibes
+        function displayVibes(vibes) {
+            const container = document.getElementById('vibes-container');
+            container.innerHTML = '';
+            
+            if (vibes && vibes.length > 0) {
+                vibes.forEach(vibe => {
+                    const tag = document.createElement('span');
+                    tag.className = 'vibe-tag';
+                    tag.textContent = vibe;
+                    container.appendChild(tag);
+                });
+            } else {
+                container.innerHTML = '<p style="color: #666; font-style: italic;">No vibes detected</p>';
+            }
+        }
+        
+        // Display products
+        function displayProducts(products) {
+            const container = document.getElementById('products-container');
+            container.innerHTML = '';
+            
+            if (products && products.length > 0) {
+                products.forEach(productGroup => {
+                    // Each productGroup is like {"product_1": [...matches...]}
+                    const groupKey = Object.keys(productGroup)[0];
+                    const matches = productGroup[groupKey];
+                    
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'product-group';
+                    
+                    const groupTitle = document.createElement('h4');
+                    groupTitle.textContent = groupKey.replace('_', ' ').toUpperCase();
+                    groupDiv.appendChild(groupTitle);
+                    
+                    const matchesGrid = document.createElement('div');
+                    matchesGrid.className = 'product-matches';
+                    
+                    matches.forEach(match => {
+                        const card = createProductCard(match);
+                        matchesGrid.appendChild(card);
+                    });
+                    
+                    groupDiv.appendChild(matchesGrid);
+                    container.appendChild(groupDiv);
+                });
+            } else {
+                container.innerHTML = '<p style="color: #666; font-style: italic;">No fashion products detected</p>';
+            }
+        }
+        
+        // Create product card
+        function createProductCard(match) {
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            
+            card.innerHTML = `
+                <img 
+                    src="${match.imageurl}" 
+                    alt="${match.type}" 
+                    class="product-image"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                >
+                <div class="product-info">
+                    <div class="product-type">${match.type}</div>
+                    <div class="product-id">ID: ${match.matched_product_id}</div>
+                    <div class="match-info">
+                        <span class="match-type">${match.match_type}</span>
+                        <span class="confidence">${(match.confidence * 100).toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+        
+        // Reset form to initial state
+        function resetForm() {
+            document.getElementById('form-section').style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-section').style.display = 'none';
+            document.getElementById('results-section').style.display = 'none';
+            
+            // Clear inputs
+            document.getElementById('video-url').value = '';
+            document.getElementById('caption-input').value = '';
+            
+            // Reset button
+            resetButton();
+            
+            // Clear stored data
+            currentAnalysisData = null;
+            
+            // Close JSON viewer if open
+            closeJSONViewer();
+            
+            // Focus on video input
+            document.getElementById('video-url').focus();
+        }
+        
+        // Reset analyze button
+        function resetButton() {
+            const btn = document.getElementById('analyze-btn');
+            btn.disabled = false;
+            btn.textContent = '🔍 Analyze Video';
+        }
+        
+        // Handle Enter key press
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && !document.getElementById('analyze-btn').disabled) {
+                analyzeVideo();
+            }
+        });
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Video Analysis Frontend loaded');
+            console.log('API Base URL:', API_BASE_URL);
+            
+            // Focus on video input
+            document.getElementById('video-url').focus();
+        });
+    </script>
+</body>
+</html>

@@ -19,18 +19,21 @@ class ProductMatcher:
         self.catalog_df = pd.read_csv(catalog_path)
         self.product_embeddings = None
         self.index = faiss.read_index(
-            r"C:\Users\SHIV\Desktop\Flickd Hackathon\data\index\product_embeddingsIP.index"
+            r"C:\Users\SHIV\Desktop\Flickd Hackathon\embeddings\product_embeddingsIP_new.index"
         )
         self.index_ids = pd.read_csv(
-            r"C:\Users\SHIV\Desktop\Flickd Hackathon\data\index\product_embedding_idsIP.csv"
+            r"C:\Users\SHIV\Desktop\Flickd Hackathon\embeddings\product_embedding_idsIP_new.csv"
         )["id"].tolist()
 
-    def match_product(self, img: np.ndarray, top_k: int = 5) -> List[Dict[str, Any]]:
+    def match_product(
+        self, img: np.ndarray, top_k: int = 5, text: str = None
+    ) -> List[Dict[str, Any]]:
         """Match a detected product image against the catalog.
 
         Args:
             img (np.ndarray): Detected product image
             top_k (int): Number of top matches to return
+            text (str, optional): Text description of the product
 
         Returns:
             List[Dict[str, Any]]: Top-k matching products with similarity scores
@@ -39,7 +42,10 @@ class ProductMatcher:
         img_pil = Image.fromarray(img)
 
         # Preprocess and generate embedding
-        query_embedding = embedding_maker.get_embedding(img_pil)
+        query_embedding = embedding_maker.get_embedding(
+            pil_img=img_pil,
+            text=text if text else "",  # Use provided text or empty string
+        )
 
         query_embedding = query_embedding.reshape(1, -1).astype("float32")
         query_embedding = query_embedding / np.linalg.norm(
@@ -53,9 +59,7 @@ class ProductMatcher:
         matches = []
         for sim, idx in zip(similarities[0], indices[0]):
             product_id = self.index_ids[idx]
-            product = self.catalog_df[self.catalog_df["id"] == product_id].iloc[
-                0
-            ]  # <-- find row by ID
+            product = self.catalog_df[self.catalog_df["id"] == product_id].iloc[0]
             match_type = self._get_match_type(sim)
 
             match = {
