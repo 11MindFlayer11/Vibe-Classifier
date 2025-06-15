@@ -119,6 +119,7 @@ pip install -r requirements.txt
 │   ├── video_processor.py    # Video frame extraction
 │   ├── vibe_llm.py          # LLM-based vibe classification
 │   └── yolov8n.pt           # YOLOv8 model weights
+├── environment/             # Used Anaconda-Environment File if any problem arises while set-up
 ├── requirements.txt         # Project dependencies
 └── README.md               # Project documentation
 ```

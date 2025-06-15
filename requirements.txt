@@ -1,15 +1,36 @@
-ultralytics>=8.0.0
-torch>=2.0.0
-torchvision>=0.15.0
-transformers>=4.30.0
-spacy>=3.6.0
-faiss-gpu>=1.7.4
-opencv-python>=4.8.0
+# Core dependencies
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.4.2
+python-multipart>=0.0.6
+
+# Computer Vision and Image Processing
+opencv-python>=4.8.1
 numpy>=1.24.0
 Pillow>=10.0.0
-fastapi>=0.100.0
-uvicorn>=0.23.0
-python-multipart>=0.0.6
-pydantic>=2.0.0
+ultralytics>=8.0.0  # For YOLOv8
+
+# Machine Learning and AI
+torch>=2.0.0
+transformers>=4.35.0
+faiss-cpu>=1.7.4  # For similarity search
+huggingface-hub>=0.19.0
+
+# Audio Processing
+faster-whisper>=0.9.0
+
+# API and Web
+requests>=2.31.0
+openai>=1.3.0
+
+# Data Processing
+pandas>=2.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+tqdm>=4.66.0
+
+# Additional dependencies
+spacy>=3.6.0
 moviepy>=1.0.3
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.6.0/en_core_web_sm-3.6.0-py3-none-any.whl 
