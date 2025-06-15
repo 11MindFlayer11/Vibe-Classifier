@@ -40,20 +40,27 @@ pip install -r requirements.txt
 
 ```
 .
+├── api/
+│   └── api.py                 # FastAPI endpoints
 ├── data/
-│   ├── videos/         # Input videos
-│   ├── catalog/        # Product catalog
-│   └── output/         # Generated results
+│   ├── catalog/              # Product catalog data
+│   ├── index/               # FAISS index files
+│   ├── output/              # Generated results
+│   └── videos/              # Input videos
+├── frontend/
+│   └── video_analysis_index.html  # Web interface
 ├── src/
+│   ├── __pycache__/         # Python cache files
+│   ├── generate_embeddings.py     # CLIP embedding generation
+│   ├── generate_embeddings_pipeline.py  # Embedding pipeline
 │   ├── object_detection.py   # YOLOv8 implementation
 │   ├── product_matching.py   # CLIP + FAISS matching
-│   ├── vibe_classifier.py    # NLP vibe classification
+│   ├── utils.py             # Helper functions
 │   ├── video_processor.py    # Video frame extraction
-│   └── utils.py             # Helper functions
-├── api/
-│   └── main.py              # FastAPI endpoints
-├── requirements.txt
-└── README.md
+│   ├── vibe_llm.py          # LLM-based vibe classification
+│   └── yolov8n.pt           # YOLOv8 model weights
+├── requirements.txt         # Project dependencies
+└── README.md               # Project documentation
 ```
 
 ## Usage

@@ -32,9 +32,7 @@ app.add_middleware(
 
 # Initialize our components
 detector = FashionDetector()
-product_matcher = ProductMatcher(
-    r"C:\Users\SHIV\Desktop\Flickd Hackathon\data\catalog\images+id+prodtype.csv"
-)
+product_matcher = ProductMatcher("data/catalog/images+id+prodtype.csv")
 embedding_maker = EmbeddingMaker()
 
 
